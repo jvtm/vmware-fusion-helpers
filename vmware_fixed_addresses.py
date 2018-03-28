@@ -28,6 +28,9 @@ Default VMWare network names:
 This script tries to be smart and find an unused address block for
 static addresses. This usually ends up being x.y.z.64/26, as VMWare
 reserves .128 -> .255 for the dynamic address range.
+
+Copyright (c) 2018 Jyrki Muukkonen
+Licensed under the MIT license. See LICENSE.txt for details.
 """
 import argparse
 import fnmatch
