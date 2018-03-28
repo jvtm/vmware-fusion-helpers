@@ -58,6 +58,13 @@ host {host} {{
 }}
 """
 
+TEMPLATE_SSH_CONFIG = """# {host} {extra}
+Host {host}
+    HostName {ip}
+"""
+
+TEMPLATE_HOSTS_ENTRY = """{ip}\t{host}"""
+
 # VMWare base directories by operating system (using platform.system())
 # So far only tried out on VMWare Fusion / macOS
 SYSTEM = platform.system()
@@ -82,6 +89,15 @@ class VirtualMachine:
     def dhcpd_static_block(self, *, ip, mac, **extra):
         extra = " ".join("{}={}".format(k, v) for k, v in sorted(extra.items()))
         return TEMPLATE_DHCPD_HOST.format(host=self.hostname, ip=ip, mac=mac, extra=extra)
+
+    def ssh_config_block(self, *, ip, **extra):
+        extra = " ".join("{}={}".format(k, v) for k, v in sorted(extra.items()))
+        return TEMPLATE_SSH_CONFIG.format(host=self.hostname, ip=ip, extra=extra)
+
+    def hosts_block(self, *, ip, **extra):
+        # add domain?
+        extra = " ".join("{}={}".format(k, v) for k, v in sorted(extra.items()))
+        return TEMPLATE_HOSTS_ENTRY.format(host=self.hostname, ip=ip, extra=extra)
 
 
 def parse_dhcpd_conf(stream):
@@ -226,6 +242,8 @@ def main(argv=None):
     parser.add_argument("--vm-dir", default=VM_DIR)
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("--vmx", nargs="+")
+    parser.add_argument("--dump-hosts", action="store_true", help="Generate also /etc/hosts entries")
+    parser.add_argument("--dump-ssh-config", action="store_true", help="Generate also ssh_config entries")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(message)s")
@@ -267,8 +285,9 @@ def main(argv=None):
         logging.info("Reading VMX info %r", fname)
         vms.append(VirtualMachine(fname))
 
-    # TODO: create also ssh config, hosts file snippets (avoid duplicates, if machine has both vmnet1 and vmnet8)
     dhcp_confs = defaultdict(list)
+    ssh_confs = defaultdict(list)
+    hosts_confs = defaultdict(list)
     for vm in sorted(vms, key=lambda x: x.hostname):
         for section, info in sorted(vm.info.items()):
             if not section.startswith("ethernet"):
@@ -287,12 +306,27 @@ def main(argv=None):
             # Note: new run with changed host list -> different addresses. Might get fixed later.
             fixed_ip = networks[vmnet]["network_fixed"][len(dhcp_confs[vmnet])]
             dhcp_confs[vmnet].append(vm.dhcpd_static_block(mac=mac_address, ip=fixed_ip, **extra))
+            if args.dump_ssh_config:
+                ssh_confs[vmnet].append(vm.ssh_config_block(ip=fixed_ip, **extra))
+            if args.dump_hosts:
+                hosts_confs[vmnet].append(vm.hosts_block(ip=fixed_ip))
 
     now = datetime.now().isoformat(timespec="seconds")
     for vmnet, configs in sorted(dhcp_confs.items()):
         print("## {} {} fixed-address configs ##\n".format(now, vmnet))
         for item in configs:
             print(item)
+        print()
+    for vmnet, configs in sorted(ssh_confs.items()):
+        print("## {} {} VMWare guest SSH client configs ##\n".format(now, vmnet))
+        for item in configs:
+            print(item)
+        print()
+    for vmnet, configs in sorted(hosts_confs.items()):
+        print("## {} {} VMWare guest DHCP static addresses ##\n".format(now, vmnet))
+        for item in configs:
+            print(item)
+        print()
 
 
 if __name__ == '__main__':
