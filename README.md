@@ -21,6 +21,13 @@ Works for both `vmnet8` aka "nat" and `vmnet1` aka "hostonly" virtual machines.
 There are (or were) some plans to make this more automatic and also modifying configs, restarting daemons etc.
 At least instructions might follow soon (after some more real life tests).
 
+For now you need to modify the `dhcpd.conf` files manually (running the script will tell you the locations tho)
+
+To restart DHCP daemons after modifications:
+
+    $ sudo /Applications/VMware\ Fusion.app/Contents/Library/services/services.sh --stopdaemons
+    $ sudo /Applications/VMware\ Fusion.app/Contents/Library/services/services.sh --start
+
 
 ## `vmware_mem_adjust.py`
 
