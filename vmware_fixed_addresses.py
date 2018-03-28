@@ -225,8 +225,7 @@ def main(argv=None):
     parser.add_argument("--prefs-dir", default=PREFS_DIR)
     parser.add_argument("--vm-dir", default=VM_DIR)
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
-    # parser.add_argument("--force-network") eg. vmnet8 for all machines
-    # --vmx: one or more explicit vmx files or directories containing vmx
+    parser.add_argument("--vmx", nargs="+")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(message)s")
@@ -257,9 +256,14 @@ def main(argv=None):
         info['network_fixed'] = find_subnet(dhcp_net, reserved)
         logging.info("Using %s as %s fixed-address range", dhcp_net, vmnet)
 
-    # TODO: mode for specific .vmx paths
+    vmx_paths = set()
+    if args.vmx:
+        vmx_paths.update(args.vmx)
+    if args.vm_dir:
+        vmx_paths.update(glob.glob(os.path.join(args.vm_dir, "*.vmwarevm", "*.vmx")))
+
     vms = []
-    for fname in glob.glob(os.path.join(args.vm_dir, "*", "*.vmx")):
+    for fname in sorted(vmx_paths):
         logging.info("Reading VMX info %r", fname)
         vms.append(VirtualMachine(fname))
 
